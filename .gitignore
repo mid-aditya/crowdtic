@@ -1,0 +1,89 @@
+# ── OS ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Node ───────────────────────────────────────────────────────────
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log
+
+# ── Next.js ────────────────────────────────────────────────────────
+.next/
+out/
+.next/
+out-tsBuildInfoFile
+
+# ── Go ─────────────────────────────────────────────────────────────
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/build/
+/tiket-booking.exe
+/tiket-read.exe
+
+# ── Hardhat / Solidity ────────────────────────────────────────────
+blockchain/cache/
+blockchain/artifacts/
+blockchain/typechain-types/
+blockchain/deployments/localhost/
+blockchain/deployments/*-*.json
+blockchain/node_modules/
+blockchain/*.env
+blockchain/broadcast/
+blockchain/tsconfig.tsbuildinfo
+
+# Re-add (keep) the latest deployment
+!blockchain/deployments/
+
+# ── Env / Secrets ──────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+*.key
+
+# ── Redis Dump ────────────────────────────────────────────────────
+dump.rdb
+
+# ── IDE ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.iml
+/.vscode
+/.idea
+
+# ── Build artifacts ────────────────────────────────────────────────
+dist/
+build/
+*.jar
+
+# ── Logs ──────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Temp ───────────────────────────────────────────────────────────
+/tmp/
+*.tmp
+*.temp
+
+# ── Terraform / Pulumi ─────────────────────────────────────────────
+*.tfstate
+*.tfstate.*
+.terraform/
+.pulumi/
+
+# ── k6 results ────────────────────────────────────────────────────
+*.csv
+results/

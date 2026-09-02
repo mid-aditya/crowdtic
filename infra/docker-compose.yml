@@ -1,0 +1,44 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tiket
+      POSTGRES_PASSWORD: tiket
+      POSTGRES_DB: tiket
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data", "../sql/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql"]
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U tiket"], interval: 5s, retries: 10 }
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server","--save","","--appendonly","no","--maxmemory","1gb","--maxmemory-policy","allkeys-lru"]
+    ports: ["6379:6379"]
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js","-m","8222"]
+    ports: ["4222:4222","8222:8222"]
+
+  booking:
+    build: ../services/booking-service
+    environment:
+      PG_DSN: postgres://tiket:tiket@postgres:5432/tiket?sslmode=disable
+      REDIS_ADDR: redis:6379
+      NATS_URL: nats://nats:4222
+      JWT_SECRET: change-me-super-secret-32chars!!
+      PORT: "8080"
+    ports: ["8080:8080"]
+    depends_on: [postgres, redis, nats]
+
+  read:
+    build: ../services/read-service
+    environment:
+      PG_READ_DSN: postgres://tiket:tiket@postgres:5432/tiket?sslmode=disable
+      REDIS_ADDR: redis:6379
+      PORT: "8081"
+    ports: ["8081:8081"]
+    depends_on: [postgres, redis]
+
+volumes:
+  pgdata:

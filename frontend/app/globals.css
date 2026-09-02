@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-ink: #080B14;
+}
+
+* { font-variant-ligatures: common-ligatures; }
+
+html { scroll-behavior: smooth; }
+
+/* custom scrollbar for ticket feel */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #232B45; border-radius: 999px; border: 2px solid #080B14; }
+::-webkit-scrollbar-track { background: #080B14; }
+
+/* perforation line */
+.perf {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.95) 3px, transparent 3.5px);
+  background-size: 10px 10px;
+  background-repeat: repeat-y;
+  background-position: center;
+}
+
+/* ticker */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track { animation: ticker 22s linear infinite; }
+
+/* shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

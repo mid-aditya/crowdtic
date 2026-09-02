@@ -1,0 +1,50 @@
+name = "tiket-waiting-room"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ── Bindings ──────────────────────────────────────────────────
+# KV for rate-limit, pool-position cache & jti allowlist (fallback when Redis unavailable)
+[[kv_namespaces]]
+binding = "WAITING_ROOM_KV"
+id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+preview_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+preview_id = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+# ── Variables (non-secret defaults) ───────────────────────────
+[vars]
+ADMISSION_RATE_PER_SEC = "2000"
+JWT_TTL_SEC = "45"
+JWT_ISSUER = "tiket-waiting-room"
+JWT_AUDIENCE = "tiket-checkout"
+RATE_LIMIT_IP_PER_MIN = "20"
+RATE_LIMIT_FP_PER_MIN = "20"
+QUEUE_ACTIVE_MAX_BATCH = "2000"
+# Comma-separated event allowlist for local dev; production reads from DB/KV
+# EVENT_ON_SALE_AT is stored per-event in KV key meta:{event_id} as JSON
+
+# ── Triggers ──────────────────────────────────────────────────
+[triggers]
+crons = ["* * * * *"]
+
+# ── Limits / Observability ────────────────────────────────────
+[limits]
+cpu_ms = 50
+
+[observability]
+enabled = true
+
+# ── Placement (run at the edge close to users) ────────────────
+[placement]
+mode = "smart"
+
+# ── Secrets (set via `wrangler secret put`) ──────────────────
+# - JWT_SECRET              : HMAC-SHA256 key (min 32 chars, base64 or raw)
+# - UPSTASH_REDIS_REST_URL  : https://xxx.upstash.io
+# - UPSTASH_REDIS_REST_TOKEN: Upstash REST token
+# - TURNSTILE_SECRET_KEY    : Cloudflare Turnstile secret
+# - ADMIT_SECRET            : HMAC / bearer for POST /queue/admit (ops only)

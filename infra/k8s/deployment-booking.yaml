@@ -1,0 +1,43 @@
+# KEDA Event-driven Autoscaling (queue depth + CPU)
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: booking-service }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: booking-service } }
+  template:
+    metadata: { labels: { app: booking-service } }
+    spec:
+      containers:
+      - name: booking
+        image: tiket/booking:latest
+        ports: [{ containerPort: 8080 }]
+        env:
+        - { name: PG_DSN, valueFrom: { secretKeyRef: { name: tiket-secrets, key: pg_dsn } } }
+        - { name: REDIS_ADDR, value: "redis-cluster:6379" }
+        - { name: NATS_URL, value: "nats://nats:4222" }
+        - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: tiket-secrets, key: jwt_secret } } }
+        resources: { requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "2000m", memory: "1Gi" } }
+        readinessProbe: { httpGet: { path: /health, port: 8080 }, periodSeconds: 5 }
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: { name: booking-keda }
+spec:
+  scaleTargetRef: { name: booking-service }
+  minReplicaCount: 3
+  maxReplicaCount: 100
+  pollingInterval: 5
+  cooldownPeriod: 30
+  triggers:
+  - type: redis
+    metadata: { address: "redis-cluster:6379", listName: "queue:active:{event}", listLength: "1000" }
+  - type: cpu
+    metadata: { type: Utilization, value: "70" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: booking-service }
+spec:
+  selector: { app: booking-service }
+  ports: [{ port: 80, targetPort: 8080 }]
