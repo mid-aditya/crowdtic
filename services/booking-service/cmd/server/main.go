@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
 
+	"tiket-booking/internal/blockchain"
 	"tiket-booking/internal/broker"
 	"tiket-booking/internal/config"
 	"tiket-booking/internal/handler"
@@ -67,6 +68,18 @@ func main() {
 	st := store.New(pool)
 	scripts := rlua.New()
 
+	// Blockchain NFT client (optional)
+	var bc *blockchain.NFTClient
+	if cfg.BlockchainEnabled && cfg.NFTContractAddress != "" {
+		bc, err = blockchain.NewNFTClient(cfg.BlockchainRPCURL, cfg.NFTContractAddress, cfg.NFTDeployerKey, cfg.ChainID)
+		if err != nil {
+			log.Printf("WARN blockchain init failed: %v (running without NFT minting)", err)
+			bc = nil
+		} else {
+			log.Printf("Blockchain NFT client ready: %s chainID=%d", cfg.NFTContractAddress, cfg.ChainID)
+		}
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 	if cfg.Env == "development" {
 		gin.SetMode(gin.DebugMode)
@@ -93,7 +106,7 @@ func main() {
 	})
 
 	holdH := &handler.HoldHandler{RDB: rdb, Store: st, Scripts: scripts, NATS: nc, HoldTTL: cfg.HoldTTL}
-	commitH := &handler.CommitHandler{RDB: rdb, Store: st, Scripts: scripts, NATS: nc}
+	commitH := &handler.CommitHandler{RDB: rdb, Store: st, Scripts: scripts, NATS: nc, BC: bc}
 
 	pub := &broker.NATSPublisher{Conn: nc}
 	releaseH := &handler.ReleaseHandler{Store: st, RDB: rdb, Scripter: scripts, Publisher: pub}

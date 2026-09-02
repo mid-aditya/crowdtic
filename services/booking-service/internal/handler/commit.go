@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"math/big"
 	"net/http"
 	"time"
 
+	blockchain "tiket-booking/internal/blockchain"
 	rlua "tiket-booking/internal/redis"
 	"tiket-booking/internal/store"
 
@@ -12,6 +16,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"golang.org/x/crypto/sha3"
 )
 
 type CommitHandler struct {
@@ -19,6 +24,7 @@ type CommitHandler struct {
 	Store   *store.Store
 	Scripts *rlua.Scripts
 	NATS    *nats.Conn
+	BC      *blockchain.NFTClient // nil if BlockchainEnabled=false
 }
 
 type CommitRequest struct {
@@ -116,5 +122,60 @@ func (h *CommitHandler) Handle(c *gin.Context) {
 	}
 	go h.Store.Audit(c.Request.Context(), &userID, &eventID, c.ClientIP(), c.GetHeader("User-Agent"), "", "COMMIT")
 
+	// Blockchain minting — non-blocking, after PG committed
+	if h.BC != nil {
+		go h.mintNFTAsync(c.Request.Context(), userID.String(), eventID, req.HoldID, seatUUIDs, unitPrice)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"order_id": orderID.String(), "total": total, "status": "PAID"})
 }
+
+// mintNFTAsync mints NFT tickets for committed seats. Non-blocking.
+func (h *CommitHandler) mintNFTAsync(ctx context.Context, userID string, eventID uuid.UUID, holdID string, seats []uuid.UUID, unitPrice int64) {
+	if h.BC == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	for _, seat := range seats {
+		metadataURI := fmt.Sprintf("https://tiket.example/nft/%s/%s", eventID.String(), seat.String())
+		txHash, tokenID, err := h.BC.MintTicket(
+			ctx,
+			userID,                             // to address (wallet)
+			eventIDToBytes32(eventID.String()), // eventId as bytes32
+			0,                                  // seatNumber
+			idrToWei(unitPrice),                // faceValue in wei
+			false,                              // kycRequired
+			metadataURI,
+		)
+		if err != nil {
+			log.Printf("WARN blockchain mint failed seat=%s: %v (PG order still valid)", seat, err)
+		} else {
+			log.Printf("NFT minted seat=%s tokenID=%s tx=%s", seat, tokenID, txHash)
+		}
+	}
+}
+
+func eventIDToBytes32(s string) [32]byte {
+	h := sha3.NewLegacyKeccak256()
+	h.Write([]byte(s))
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// idrToWei converts IDR (smallest unit) to wei (1e18 = 1 ETH).
+// For IDR: 1 unit = 1 rupiah. For ETH: 1 ether = 1e18 wei.
+// faceValue parameter is in IDR smallest unit; convert to wei at 1:1 for local dev.
+func idrToWei(idr int64) *big.Int {
+	return new(big.Int).Mul(big.NewInt(idr), weiPerIdrUnit())
+}
+
+func weiPerIdrUnit() *big.Int {
+	// 1 IDR = 1e12 wei (for demo; real price feed should set this)
+	return big.NewInt(1_000_000_000_000) // 1e12
+}
+
+// ponytail: weiPerIdrUnit is a fixed demo ratio. In production, fetch from a price oracle
+// (e.g. Chainlink ETH/USD + conversion) so NFT faceValue reflects real ETH value.
